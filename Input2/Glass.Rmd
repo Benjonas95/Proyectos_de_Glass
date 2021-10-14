@@ -1,0 +1,159 @@
+---
+title: "Proyecto 2"
+output: html_notebook
+---
+
+```{r}
+library(corrplot)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(MASS)
+library(Boruta)
+library(gridExtra)
+```
+##Cargando Data Set
+```{r}
+data <- read.csv("../Input2/glass.csv")
+data$Type <- as.factor(data$Type)
+```
+
+##Analisis del tipo de dato del data set
+```{r}
+glimpse(data)
+```
+##Analisis descriptivo basico 
+```{r}
+summary(data)
+```
+
+##Encontrando datos faltantes segun columna
+```{r}
+colSums(is.na(data))
+```
+##Encontrando filas duplicadas
+```{r}
+anyDuplicated(data)
+```
+##Removiendo datos duplicados
+```{r}
+data <- data[!duplicated(data),]
+glimpse(data)
+#Paso de tener 214 observaciones a 213 observaciones
+```
+##Contando cuantas observaciones hay por cada tipo de la columna Type
+```{r}
+table(data$Type)
+```
+
+##Graficando tipos de vidrios
+```{r}
+q<-ggplot(data)
+q<-q+aes(x=Type,fill=Type)
+q<-q+geom_bar()
+q<-q+xlab("Tipos de Vidrios")
+q<-q+ylab("Cantidad")
+q<-q+ggtitle("frecuencia de Tipos de Vidrios",subtitle = "2021")
+q<-q+coord_flip()
+q
+#barplot(data$Type)
+```
+
+
+##grafico Boxplot para analizar la normalidad de los datos, ver datos atipicos escepto la columna Type
+```{r}
+library(car)
+Boxplot(data[,1:9])
+```
+##Analisis de datos Multivaraidos
+##Grafico de Correlacion
+```{r}
+correl <- cor(data[,1:9])
+corrplot(correl)
+##Exites una correlacion fuerte entre RL y Ca
+```
+##Analsis de comportamiento normal de la variable Rl en funcion del Type
+```{r}
+Boxplot(data$RI~data$Type)
+```
+
+##Contando el numero de participacion de cada elemento en el Vidrio
+```{r}
+data_only_elements <- data[, which(!(names(data) %in% c('RI','Type')))]
+element_samples <- apply(data_only_elements!=0, 2, sum)
+element_samples
+#Na,Al,Si,Ca participan en todo los tipos escepto Mg,K,Ba y Fe que tienen una participacion menor de su muestra de 213
+```
+
+```{r}
+barplot(element_samples)
+abline(h=nrow(data), lty=2, col="blue")
+```
+
+```{r}
+H<-(data[, which(!(names(data) %in% c('RI', 'Type')))] > 0) %>% as.data.frame() %>% cbind(Type=data$Type) %>% group_by(Type) %>% summarise(Na=sum(Na), Mg=sum(Mg), Al=sum(Al), Si=sum(Si), K=sum(K), Ca=sum(Ca), Ba=sum(Ba), Fe=sum(Fe))
+H
+```
+
+
+
+```{r}
+df <- data.frame(Tipos = c("Na","Mg","Al","Si","K","Ca","Ba","FE"),
+                 num = c(69,69,69,69,68,69,3,25 ))
+# df <- as.list(df) # Equivalente
+
+barplot(height = df$num, names = df$Tipos,
+        col = c("red", "green", "white", "blue","red", "green", "white", "blue"),main = "Grafico de tipo 1 segun sus componentes",xlab = "quimicos",ylab = "frecuencia")
+```
+
+
+##GRACIFIACNDO LA CANTIDAD DE ELEMENTOS SEGUN SU TIPO AL 100%
+```{r}
+data_weight <- data %>% apply(1, function(x) sum(as.numeric(x[setdiff(names(data) , c('RI', 'Type'))]))) %>% cbind(data$Type) %>% as.data.frame()
+names(data_weight) <- c("Weight", "Type")
+data_weight$Type <- as.factor(data_weight$Type)
+ggplot(data_weight, aes(x=Type, y=Weight, fill=Type)) + geom_boxplot()
+```
+
+
+```{r}
+ggplot(data_weight, aes(x=Weight, fill=Type)) + geom_density()
+```
+
+```{r}
+data3 <- data[setdiff(names(data) , c('RI', 'Type'))]/data_weight[,"Weight"] 
+data4 <- cbind(data3, Type=data$Type)
+
+data4 %>% group_by(Type) %>% summarise(Na=mean(Na), Mg=mean(Mg), Al=mean(Al), Si=mean(Si), K=mean(K), Ca=mean(Ca), Ba=mean(Ba), Fe=mean(Fe)) %>% gather(Element, Proportion, -Type) %>% ggplot(aes(x=Type, y=Proportion, fill=as.factor(Element))) + geom_bar(stat="identity") + scale_fill_discrete("Element")
+```
+
+##Analisis PCA
+```{r}
+library(grid)
+library(FactoMineR)
+library(factoextra)
+```
+
+```{r}
+dpca<-data
+dpca$RI=NULL
+data_without_label <- data[, which(!(names(data) %in% c('Type')))]
+dpca<-textshape::column_to_rownames(dpca,loc = 9)
+res.pca<-PCA(dpca,scale.unit = TRUE,ncp =8 ,graph = TRUE)
+```
+
+```{r}
+print(res.pca)
+```
+```{r}
+res.pca$var
+```
+##CONTRIBUCION DE CADA INDIVIDUO A LA FORMACION DE CADA COMPONENTES
+```{r}
+res.pca$ind$contrib
+```
+
+
+
+
+
